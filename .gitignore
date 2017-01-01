@@ -1,0 +1,5 @@
+.idea
+*.iml
+perspective-installer
+vendor/*/
+*_string.go

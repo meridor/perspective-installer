@@ -1,0 +1,13 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "m10RCuihLtOMaSwPMBT3S4xgzHw=",
+			"path": "golang.org/x/tools/cmd/stringer",
+			"revision": "908849c3379245f71612058fbf92cf6bf58c3c75",
+			"revisionTime": "2016-12-20T20:06:13Z"
+		}
+	],
+	"rootPath": "github.com/meridor/perspective-installer"
+}
