@@ -4,34 +4,45 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"github.com/meridor/perspective-installer/generator"
+	"github.com/meridor/perspective-installer/wizard"
+	"os/signal"
+	"syscall"
 )
 
 var (
-	file string
-	generators = make(map[string] Generator)
+	dir string
 )
 
 func init() {
-	
-	generators["docker-compose"] = DockerComposeGenerator{}
-	
-	flag.StringVar(&file, "-o", "", "File to output generated config")
+	flag.StringVar(&dir, "-d", ".", "Directory to output generated config")
 	flag.Parse()
+	sig := make(chan os.Signal)
+	signal.Notify(sig, syscall.SIGINT)
+	go func() {
+		for {
+			<-sig
+			fmt.Println("Interrupted.")
+			os.Exit(1)
+		}
+	}()
 }
 
 func main() {
 	if (len(flag.Args()) == 0) {
-		fmt.Println("Usage: perspective-installer [-o filename] generator1 generator2 ...")
-		generatorNames := make([]string, 0, len(generators))
-		for k := range generators {
-			generatorNames = append(generatorNames, k)
-		}
+		fmt.Println("Usage: perspective-installer [-d /path/to/directory] generator1 generator2 ...")
+		generatorNames := generator.GetNames()
 		fmt.Println("The following generators are supported:")
 		for _, gn := range generatorNames {
 			fmt.Printf("* %s\n", gn)
 		}
 		os.Exit(1)
 	}
-	Act(flag.Args())
+	clouds := wizard.RunWizards()
+	if (len(clouds) == 0) {
+		fmt.Println("You skipped all clouds. Exiting.")
+		os.Exit(1)
+	}
+	generator.RunGenerators(dir, clouds, flag.Args())
 	os.Exit(0)
 }
