@@ -54,6 +54,17 @@ func (g DockerComposeGenerator) Config(config ClusterConfig) {
 		dockerComposeYml := createDockerCompose(config)
 		g.saveDockerCompose(dockerComposeYml)
 	}
+	composeYmlPath := createComposeYmlPath(g.Dir)
+	fmt.Printf(
+		"Use the following command to start cluster: docker-compose -f %s up\n",
+		composeYmlPath,
+	)
+	fmt.Printf(
+		"To completely remove cluster type: docker-compose -f %s down && rm -Rf %s && rm -Rf %s\n",
+		composeYmlPath,
+		configDir,
+		logsDir,
+	)
 }
 
 func (g DockerComposeGenerator) createDirectory(path string) {
@@ -153,8 +164,4 @@ func (g DockerComposeGenerator) saveDockerCompose(composeYml DockerComposeYml) {
 
 func createComposeYmlPath(dir string) string {
 	return path.Join(dir, "docker-compose.yml")
-}
-
-func (g DockerComposeGenerator) Command() string {
-	return fmt.Sprintf("docker-compose -f %s up", createComposeYmlPath(g.Dir))
 }

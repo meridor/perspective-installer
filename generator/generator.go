@@ -15,7 +15,6 @@ var (
 type Generator interface {
 	Name() string
 	Config(config ClusterConfig)
-	Command() string
 }
 
 type BaseGenerator struct {
@@ -64,7 +63,6 @@ func RunGenerators(config ClusterConfig, generatorNames []string) {
 	for _, generatorName := range generatorNames {
 		if gen, ok := generators[generatorName]; ok {
 			gen.Config(config)
-			fmt.Printf("Use the following command to start cluster: %s\n", gen.Command())
 		} else {
 			fmt.Printf("Skipping unsupported generator: %s\n", generatorName)
 		}
