@@ -12,10 +12,12 @@ import (
 
 var (
 	dir string
+	dryRun bool
 )
 
 func init() {
-	flag.StringVar(&dir, "-d", ".", "Directory to output generated config")
+	flag.StringVar(&dir, "d", ".", "Directory to output generated config")
+	flag.BoolVar(&dryRun, "dryRun", false, "Dry run (only show what is going to be done)")
 	flag.Parse()
 	sig := make(chan os.Signal)
 	signal.Notify(sig, syscall.SIGINT)
@@ -29,8 +31,9 @@ func init() {
 }
 
 func main() {
+	generator.InitGenerators(dir, dryRun)
 	if len(flag.Args()) == 0 {
-		fmt.Println("Usage: perspective-installer [-d /path/to/directory] generator1 generator2 ...")
+		fmt.Println("Usage: perspective-installer [-dir /path/to/directory] [-dryRun] generator1 generator2 ...")
 		generatorNames := generator.GetNames()
 		fmt.Println("The following generators are supported:")
 		for _, gn := range generatorNames {
@@ -38,11 +41,14 @@ func main() {
 		}
 		os.Exit(1)
 	}
-	version, clouds := wizard.RunWizards()
-	if len(clouds) == 0 {
+	if (dryRun) {
+		fmt.Println("Warning: working in \"dry run\" mode. No data will be actually written to disk.")
+	}
+	clusterConfig := wizard.RunWizards()
+	if len(clusterConfig.Clouds) == 0 {
 		fmt.Println("You skipped all clouds. Exiting.")
 		os.Exit(1)
 	}
-	generator.RunGenerators(dir, version, clouds, flag.Args())
+	generator.RunGenerators(clusterConfig, flag.Args())
 	os.Exit(0)
 }

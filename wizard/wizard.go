@@ -35,7 +35,7 @@ const (
 	defaultApiPort = "8080"
 )
 
-func RunWizards() (ClusterConfig, map[CloudType]Cloud) {
+func RunWizards() ClusterConfig {
 	initWizards()
 	printWelcomeMessages()
 	latestRelease := loadLatestRelease()
@@ -53,7 +53,8 @@ func RunWizards() (ClusterConfig, map[CloudType]Cloud) {
 			fmt.Println()
 		}
 	}
-	return clusterConfig, clouds
+	clusterConfig.Clouds = clouds
+	return clusterConfig
 }
 
 func printWelcomeMessages() {

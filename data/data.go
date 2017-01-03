@@ -35,4 +35,5 @@ type CloudsXmlCloud struct {
 type ClusterConfig struct {
 	ApiPort int
 	Version string
+	Clouds map[CloudType] Cloud
 }

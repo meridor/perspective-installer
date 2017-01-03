@@ -3,6 +3,8 @@ package generator
 import (
 	"fmt"
 	. "github.com/meridor/perspective-installer/data"
+	"encoding/xml"
+	"os"
 	"strings"
 )
 
@@ -12,16 +14,42 @@ var (
 
 type Generator interface {
 	Name() string
-	Config(config ClusterConfig, clouds map[CloudType]Cloud) string
-	Command(dir string) string
+	Config(config ClusterConfig)
+	Command() string
 }
 
-func init() {
-	addGenerator(DockerComposeGenerator{})
+type BaseGenerator struct {
+	Dir string
+	DryRun bool
+}
+
+func InitGenerators(dir string, dryRun bool) {
+	dirAware := BaseGenerator{dir, dryRun}
+	addGenerator(DockerComposeGenerator{dirAware})
 }
 
 func addGenerator(generator Generator) {
 	generators[generator.Name()] = generator
+}
+
+func marshalCloudsXml(cloudsXml CloudsXml) []byte {
+	bytes, err := xml.MarshalIndent(cloudsXml, "", "    ")
+	if (err != nil) {
+		fmt.Printf("Failed to output clouds.xml: %v\n", err)
+		os.Exit(1)
+	}
+	return bytes
+}
+
+func exitIfFailed(path string, err error) {
+	if (err != nil) {
+		fmt.Printf("Failed to save [%s]: %v. Exiting.", path, err)
+		os.Exit(1)
+	}
+}
+
+func prepareCloudType(cloudType CloudType) string {
+	return strings.Replace(strings.ToLower(cloudType.String()), "_", "-", -1)
 }
 
 func GetNames() []string {
@@ -32,17 +60,11 @@ func GetNames() []string {
 	return generatorNames
 }
 
-func RunGenerators(dir string, config ClusterConfig, clouds map[CloudType]Cloud, generatorNames []string) {
+func RunGenerators(config ClusterConfig, generatorNames []string) {
 	for _, generatorName := range generatorNames {
 		if gen, ok := generators[generatorName]; ok {
-			config := gen.Config(config, clouds)
-			if dir == "" {
-				fmt.Println(generatorName)
-				fmt.Println(strings.Repeat("-", len(generatorName)))
-				fmt.Print(config)
-			}
-			fmt.Println()
-			fmt.Printf("Use the following command to start cluster: %s\n", gen.Command(dir))
+			gen.Config(config)
+			fmt.Printf("Use the following command to start cluster: %s\n", gen.Command())
 		} else {
 			fmt.Printf("Skipping unsupported generator: %s\n", generatorName)
 		}

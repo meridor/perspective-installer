@@ -3,10 +3,28 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "24CmI1XvvB42B1pV1OhLKecZo2s=",
+			"path": "github.com/aandryashin/matchers",
+			"revision": "5eb67beb188b5076812683a96c13bef79d970fd8",
+			"revisionTime": "2016-07-29T13:19:23Z"
+		},
+		{
+			"checksumSHA1": "mhvIMH8oAtOiEyg37zWKmgb+6v4=",
+			"path": "github.com/pborman/uuid",
+			"revision": "3d4f2ba23642d3cfd06bd4b54cf03d99d95c0f1b",
+			"revisionTime": "2016-10-05T15:16:09Z"
+		},
+		{
 			"checksumSHA1": "m10RCuihLtOMaSwPMBT3S4xgzHw=",
 			"path": "golang.org/x/tools/cmd/stringer",
 			"revision": "908849c3379245f71612058fbf92cf6bf58c3c75",
 			"revisionTime": "2016-12-20T20:06:13Z"
+		},
+		{
+			"checksumSHA1": "12GqsW8PiRPnezDDy0v4brZrndM=",
+			"path": "gopkg.in/yaml.v2",
+			"revision": "a5b47d31c556af34a302ce5d659e6fea44d90de0",
+			"revisionTime": "2016-09-28T15:37:09Z"
 		}
 	],
 	"rootPath": "github.com/meridor/perspective-installer"
