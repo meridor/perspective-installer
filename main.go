@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 	"github.com/meridor/perspective-installer/generator"
 	"github.com/meridor/perspective-installer/wizard"
+	"os"
 	"os/signal"
 	"syscall"
 )
@@ -29,7 +29,7 @@ func init() {
 }
 
 func main() {
-	if (len(flag.Args()) == 0) {
+	if len(flag.Args()) == 0 {
 		fmt.Println("Usage: perspective-installer [-d /path/to/directory] generator1 generator2 ...")
 		generatorNames := generator.GetNames()
 		fmt.Println("The following generators are supported:")
@@ -38,11 +38,11 @@ func main() {
 		}
 		os.Exit(1)
 	}
-	clouds := wizard.RunWizards()
-	if (len(clouds) == 0) {
+	version, clouds := wizard.RunWizards()
+	if len(clouds) == 0 {
 		fmt.Println("You skipped all clouds. Exiting.")
 		os.Exit(1)
 	}
-	generator.RunGenerators(dir, clouds, flag.Args())
+	generator.RunGenerators(dir, version, clouds, flag.Args())
 	os.Exit(0)
 }

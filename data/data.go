@@ -13,21 +13,26 @@ const (
 )
 
 type Cloud struct {
-	XmlConfig CloudsXml
-	Properties map[string] interface{}
+	XmlConfig  CloudsXml
+	Properties map[string]interface{}
 }
 
 type CloudsXml struct {
-	XMLName  xml.Name     `xml:"clouds"`
-	XmlNS    string       `xml:"xmlns,attr"`
-	Clouds []CloudsXmlCloud `xml:"cloud"`
+	XMLName xml.Name         `xml:"clouds"`
+	XmlNS   string           `xml:"xmlns,attr"`
+	Clouds  []CloudsXmlCloud `xml:"cloud"`
 }
 
 type CloudsXmlCloud struct {
-	Id string `xml:"id"`
-	Name string `xml:"name"`
-	Endpoint string `xml:"endpoint"`
-	Identity string `xml:"identity"`
+	Id         string `xml:"id"`
+	Name       string `xml:"name"`
+	Endpoint   string `xml:"endpoint"`
+	Identity   string `xml:"identity"`
 	Credential string `xml:"credential"`
-	Enabled bool `xml:"enabled"`
+	Enabled    bool   `xml:"enabled"`
+}
+
+type ClusterConfig struct {
+	ApiPort int
+	Version string
 }

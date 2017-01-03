@@ -1,18 +1,18 @@
 package generator
 
 import (
-	. "github.com/meridor/perspective-installer/data"
 	"fmt"
+	. "github.com/meridor/perspective-installer/data"
 	"strings"
 )
 
 var (
-	generators = make(map[string] Generator)
+	generators = make(map[string]Generator)
 )
 
 type Generator interface {
 	Name() string
-	Config(clouds map[CloudType] Cloud) string
+	Config(config ClusterConfig, clouds map[CloudType]Cloud) string
 	Command(dir string) string
 }
 
@@ -32,15 +32,15 @@ func GetNames() []string {
 	return generatorNames
 }
 
-func RunGenerators(dir string, clouds map[CloudType] Cloud, generatorNames []string) {
+func RunGenerators(dir string, config ClusterConfig, clouds map[CloudType]Cloud, generatorNames []string) {
 	for _, generatorName := range generatorNames {
 		if gen, ok := generators[generatorName]; ok {
-			config := gen.Config(clouds)
-			if (dir == "") {
+			config := gen.Config(config, clouds)
+			if dir == "" {
 				fmt.Println(generatorName)
 				fmt.Println(strings.Repeat("-", len(generatorName)))
+				fmt.Print(config)
 			}
-			fmt.Print(config)
 			fmt.Println()
 			fmt.Printf("Use the following command to start cluster: %s\n", gen.Command(dir))
 		} else {

@@ -1,8 +1,8 @@
 package wizard
 
 import (
-	"testing"
 	. "github.com/aandryashin/matchers"
+	"testing"
 )
 
 type mockReader struct {
