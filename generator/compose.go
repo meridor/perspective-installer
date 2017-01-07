@@ -35,6 +35,8 @@ type ServiceConfig struct {
 
 type DockerComposeGenerator struct {
 	BaseGenerator
+	configDir string
+	logsDir string
 }
 
 func (g DockerComposeGenerator) Name() string {
@@ -43,15 +45,15 @@ func (g DockerComposeGenerator) Name() string {
 
 func (g DockerComposeGenerator) Config(config ClusterConfig) {
 	fmt.Println("To use Docker Compose answer a bit more questions:")
-	configDir := wizard.FreeInputQuestion("Specify configuration directory on Docker host machine:", "/etc/perspective")
-	logsDir := wizard.FreeInputQuestion("Specify logs directory on Docker host machine:", "/var/log/perspective")
+	g.configDir = wizard.FreeInputQuestion("Specify configuration directory on Docker host machine:", "/etc/perspective")
+	g.logsDir = wizard.FreeInputQuestion("Specify logs directory on Docker host machine:", "/var/log/perspective")
 	if (wizard.YesNoQuestion("Will now create directories and configuration files. Proceed?", true)){
-		g.createDirectory(logsDir)
+		g.createDirectory(g.logsDir)
 		for cloudType, cloud := range config.Clouds {
-			cloudsXmlPath := g.getCloudsXmlPath(configDir, cloudType)
+			cloudsXmlPath := g.getCloudsXmlPath(cloudType)
 			g.saveCloudsXml(cloudsXmlPath, cloud.XmlConfig)
 		}
-		dockerComposeYml := createDockerCompose(config)
+		dockerComposeYml := g.createDockerCompose(config)
 		g.saveDockerCompose(dockerComposeYml)
 	}
 	composeYmlPath := createComposeYmlPath(g.Dir)
@@ -62,8 +64,8 @@ func (g DockerComposeGenerator) Config(config ClusterConfig) {
 	fmt.Printf(
 		"To completely remove cluster type: docker-compose -f %s down && rm -Rf %s && rm -Rf %s\n",
 		composeYmlPath,
-		configDir,
-		logsDir,
+		g.configDir,
+		g.logsDir,
 	)
 }
 
@@ -78,9 +80,9 @@ func (g DockerComposeGenerator) createDirectory(path string) {
 	}
 }
 
-func (g DockerComposeGenerator) getCloudsXmlPath(configDir string, cloudType CloudType) string {
+func (g DockerComposeGenerator) getCloudsXmlPath(cloudType CloudType) string {
 	dirName := prepareCloudType(cloudType)
-	cloudDir := path.Join(configDir, dirName)
+	cloudDir := path.Join(g.configDir, dirName)
 	g.createDirectory(cloudDir)
 	return path.Join(cloudDir, "clouds.xml")
 }
@@ -96,50 +98,54 @@ func (g DockerComposeGenerator) saveCloudsXml(path string, cloudsXml CloudsXml) 
 	}
 }
 
-func createDockerCompose(config ClusterConfig) DockerComposeYml {
+func (g DockerComposeGenerator) createDockerCompose(config ClusterConfig) DockerComposeYml {
 	dockerComposeYml := DockerComposeYml{
 		Version: "2.1",
 		Services: make(map[string] ServiceConfig),
 	}
-	dockerComposeYml.Services["storage"] = createStorageService(config)
-	dockerComposeYml.Services["rest"] = createRestService(config)
+	dockerComposeYml.Services["storage"] = g.createStorageService(config)
+	dockerComposeYml.Services["rest"] = g.createRestService(config)
 	for cloudType := range config.Clouds {
 		workerServiceName := prepareCloudType(cloudType)
-		dockerComposeYml.Services[workerServiceName] = createWorkerService(cloudType, config.Version)
+		dockerComposeYml.Services[workerServiceName] = g.createWorkerService(cloudType, config.Version)
 	} 
 	return dockerComposeYml
 }
 
-func createEnvironment() map[string] interface{} {
+func (g DockerComposeGenerator) createEnvironment(serviceName string) map[string] interface{} {
 	env := make(map[string] interface{})
-	env["MISC_PROPERTIES"] = "-Dperspective.storage.hosts=storage:5801"
+	env["MISC_OPTS"] = "-Dperspective.storage.hosts=storage:5801"
+	env["LOGGING_OPTS"] = " >> " + path.Join(g.logsDir, serviceName + ".log")
 	return env
 }
 
-func createStorageService(config ClusterConfig) ServiceConfig {
+func (g DockerComposeGenerator) createStorageService(config ClusterConfig) ServiceConfig {
+	env := g.createEnvironment("perspective-storage")
+	delete(env, "MISC_OPTS")
 	return ServiceConfig{
 		ContainerName: "perspective-storage",
 		Image: fmt.Sprintf("meridor/perspective-storage:%s", config.Version),
+		Environment: env,
 	}
 }
 
-func createRestService(config ClusterConfig) ServiceConfig {
+func (g DockerComposeGenerator) createRestService(config ClusterConfig) ServiceConfig {
 	return ServiceConfig{
 		ContainerName: "perspective-rest",
 		Image: fmt.Sprintf("meridor/perspective-rest:%s", config.Version),
 		Ports: []string{fmt.Sprintf("8080:%d", config.ApiPort)},
-		Environment: createEnvironment(),
+		Environment: g.createEnvironment("perspective-rest"),
 		Links: []string{"storage"},
 		DependsOn: []string{"storage"},
 	}
 }
 
-func createWorkerService(cloudType CloudType, version string) ServiceConfig {
+func (g DockerComposeGenerator) createWorkerService(cloudType CloudType, version string) ServiceConfig {
 	suffix := prepareCloudType(cloudType)
 	return ServiceConfig{
 		ContainerName: fmt.Sprintf("perspective-%s", suffix),
 		Image: fmt.Sprintf("meridor/%s:%s", suffix, version),
-		Environment: createEnvironment(),
+		Environment: g.createEnvironment(suffix),
 		Links: []string{"storage"},
 		DependsOn: []string{"rest"},
 	}

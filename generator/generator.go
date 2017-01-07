@@ -24,7 +24,7 @@ type BaseGenerator struct {
 
 func InitGenerators(dir string, dryRun bool) {
 	dirAware := BaseGenerator{dir, dryRun}
-	addGenerator(DockerComposeGenerator{dirAware})
+	addGenerator(DockerComposeGenerator{BaseGenerator: dirAware})
 }
 
 func addGenerator(generator Generator) {
