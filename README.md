@@ -5,7 +5,6 @@ This repository contains a small helper tool that helps to install Perspective t
 To build type:
 ```
 $ govendor sync
-$ go generate
 $ go build
 ```
 To run tests type:
