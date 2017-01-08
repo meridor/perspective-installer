@@ -126,7 +126,16 @@ func (g DockerComposeGenerator) createStorageService(config ClusterConfig) Servi
 		ContainerName: "perspective-storage",
 		Image: fmt.Sprintf("meridor/perspective-storage:%s", config.Version),
 		Environment: env,
+		Volumes: []string{volume(g.logsDir), readOnlyVolume(path.Join(g.configDir, "storage"))},
 	}
+}
+
+func readOnlyVolume(dir string) string {
+	return fmt.Sprintf("%s:ro", volume(dir))
+}
+
+func volume(dir string) string {
+	return fmt.Sprintf("%s:%s", dir, dir)
 }
 
 func (g DockerComposeGenerator) createRestService(config ClusterConfig) ServiceConfig {
@@ -137,17 +146,23 @@ func (g DockerComposeGenerator) createRestService(config ClusterConfig) ServiceC
 		Environment: g.createEnvironment("perspective-rest"),
 		Links: []string{"storage"},
 		DependsOn: []string{"storage"},
+		Volumes: []string{volume(g.logsDir), readOnlyVolume(path.Join(g.configDir, "rest"))},
 	}
 }
 
 func (g DockerComposeGenerator) createWorkerService(cloudType CloudType, version string) ServiceConfig {
 	suffix := prepareCloudType(cloudType)
+	volumes := []string{volume(g.logsDir), readOnlyVolume(path.Join(g.configDir, suffix))}
+	if (cloudType == DOCKER) {
+		volumes = append(volumes, volume("/var/run"))
+	}
 	return ServiceConfig{
 		ContainerName: fmt.Sprintf("perspective-%s", suffix),
 		Image: fmt.Sprintf("meridor/%s:%s", suffix, version),
 		Environment: g.createEnvironment(suffix),
 		Links: []string{"storage"},
 		DependsOn: []string{"rest"},
+		Volumes: volumes,
 	}
 }
 
