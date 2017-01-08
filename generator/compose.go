@@ -158,7 +158,7 @@ func (g DockerComposeGenerator) createWorkerService(cloudType CloudType, version
 	}
 	return ServiceConfig{
 		ContainerName: fmt.Sprintf("perspective-%s", suffix),
-		Image: fmt.Sprintf("meridor/%s:%s", suffix, version),
+		Image: fmt.Sprintf("meridor/perspective-%s:%s", suffix, version),
 		Environment: g.createEnvironment(suffix),
 		Links: []string{"storage"},
 		DependsOn: []string{"rest"},
