@@ -8,6 +8,7 @@ import (
 	"path"
 	"io/ioutil"
 	"gopkg.in/yaml.v2"
+	"bytes"
 )
 
 const (
@@ -49,16 +50,27 @@ func (g DockerComposeGenerator) Config(config ClusterConfig) {
 	g.logsDir = wizard.FreeInputQuestion("Specify logs directory on Docker host machine:", "/var/log/perspective")
 	if (wizard.YesNoQuestion("Will now create directories and configuration files. Proceed?", true)){
 		g.createDirectory(g.logsDir)
+		
+		//Worker configs
 		for cloudType, cloud := range config.Clouds {
 			cloudsXmlPath := g.getCloudsXmlPath(cloudType)
 			g.saveCloudsXml(cloudsXmlPath, cloud.XmlConfig)
+			workerPropertiesPath := g.getWorkerPropertiesPath(cloudType)
+			g.saveProperties(workerPropertiesPath, g.getStorageProperties())
 		}
+		
+		//Rest configs
+		restConfigDir := path.Join(g.configDir, "rest")
+		g.createDirectory(restConfigDir)
+		g.saveProperties(path.Join(restConfigDir, "rest.properties"), g.getStorageProperties())
+		
+		//docker-compose.yml
 		dockerComposeYml := g.createDockerCompose(config)
 		g.saveDockerCompose(dockerComposeYml)
 	}
 	composeYmlPath := createComposeYmlPath(g.Dir)
 	fmt.Printf(
-		"Use the following command to start cluster: docker-compose -f %s up\n",
+		"Use the following command to start cluster: docker-compose -f %s up -d\n",
 		composeYmlPath,
 	)
 	fmt.Printf(
@@ -80,11 +92,27 @@ func (g DockerComposeGenerator) createDirectory(path string) {
 	}
 }
 
-func (g DockerComposeGenerator) getCloudsXmlPath(cloudType CloudType) string {
+func (g DockerComposeGenerator) getWorkerConfigDir(cloudType CloudType) string {
 	dirName := prepareCloudType(cloudType)
 	cloudDir := path.Join(g.configDir, dirName)
 	g.createDirectory(cloudDir)
+	return cloudDir
+}
+
+func (g DockerComposeGenerator) getCloudsXmlPath(cloudType CloudType) string {
+	cloudDir := g.getWorkerConfigDir(cloudType)
 	return path.Join(cloudDir, "clouds.xml")
+}
+
+func (g DockerComposeGenerator) getWorkerPropertiesPath(cloudType CloudType) string {
+	cloudDir := g.getWorkerConfigDir(cloudType)
+	return path.Join(cloudDir, "worker.properties")
+}
+
+func (g DockerComposeGenerator) getStorageProperties() map[string] string {
+	properties := make(map[string] string)
+	properties["perspective.storage.hosts"] = "storage:5801"
+	return properties
 }
 
 func (g DockerComposeGenerator) saveCloudsXml(path string, cloudsXml CloudsXml) {
@@ -94,6 +122,20 @@ func (g DockerComposeGenerator) saveCloudsXml(path string, cloudsXml CloudsXml) 
 		fmt.Println(string(cloudsXmlContents))
 	} else {
 		err := ioutil.WriteFile(path, cloudsXmlContents, fileMode)
+		exitIfFailed(path, err)
+	}
+}
+
+func (g DockerComposeGenerator) saveProperties(path string, properties map[string] string) {
+	fmt.Printf("Saving [%s]...\n", path)
+	var buffer bytes.Buffer
+	for k, v := range properties {
+		buffer.WriteString(fmt.Sprintf("%s=%s\n", k, v))
+	}
+	if (g.DryRun) {
+		fmt.Println(buffer.String())
+	} else {
+		err := ioutil.WriteFile(path, buffer.Bytes(), fileMode)
 		exitIfFailed(path, err)
 	}
 }
@@ -114,14 +156,13 @@ func (g DockerComposeGenerator) createDockerCompose(config ClusterConfig) Docker
 
 func (g DockerComposeGenerator) createEnvironment(serviceName string) map[string] interface{} {
 	env := make(map[string] interface{})
-	env["MISC_OPTS"] = "-Dperspective.storage.hosts=storage:5801"
-	env["LOGGING_OPTS"] = " >> " + path.Join(g.logsDir, serviceName + ".log")
+	env["MISC_OPTS"] = fmt.Sprintf("-Xbootclasspath/a:/etc/perspective/%s", serviceName)
+	env["LOGFILE"] = path.Join(g.logsDir, "perspective-" + serviceName + ".log")
 	return env
 }
 
 func (g DockerComposeGenerator) createStorageService(config ClusterConfig) ServiceConfig {
-	env := g.createEnvironment("perspective-storage")
-	delete(env, "MISC_OPTS")
+	env := g.createEnvironment("storage")
 	return ServiceConfig{
 		ContainerName: "perspective-storage",
 		Image: fmt.Sprintf("meridor/perspective-storage:%s", config.Version),
@@ -143,7 +184,7 @@ func (g DockerComposeGenerator) createRestService(config ClusterConfig) ServiceC
 		ContainerName: "perspective-rest",
 		Image: fmt.Sprintf("meridor/perspective-rest:%s", config.Version),
 		Ports: []string{fmt.Sprintf("8080:%d", config.ApiPort)},
-		Environment: g.createEnvironment("perspective-rest"),
+		Environment: g.createEnvironment("rest"),
 		Links: []string{"storage"},
 		DependsOn: []string{"storage"},
 		Volumes: []string{volume(g.logsDir), readOnlyVolume(path.Join(g.configDir, "rest"))},
@@ -167,18 +208,18 @@ func (g DockerComposeGenerator) createWorkerService(cloudType CloudType, version
 }
 
 func (g DockerComposeGenerator) saveDockerCompose(composeYml DockerComposeYml) {
-	bytes, err := yaml.Marshal(&composeYml)
+	bts, err := yaml.Marshal(&composeYml)
 	if (err != nil) {
 		fmt.Printf("Failed to generate docker-compose.yml contents: %v\n", err)
 	}
-	ymlString := string(bytes)
+	ymlString := string(bts)
 	ymlPath := createComposeYmlPath(g.Dir)
 	fmt.Printf("Saving [%s]...\n", ymlPath)
 	if (g.DryRun) {
 		fmt.Println(ymlString)
 	} else {
 		g.createDirectory(g.Dir)
-		err := ioutil.WriteFile(ymlPath, bytes, fileMode)
+		err := ioutil.WriteFile(ymlPath, bts, fileMode)
 		exitIfFailed(ymlPath, err)
 	}
 }
