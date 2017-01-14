@@ -70,7 +70,8 @@ func (g DockerComposeGenerator) Config(config ClusterConfig) {
 	}
 	composeYmlPath := createComposeYmlPath(g.Dir)
 	fmt.Printf(
-		"Use the following command to start cluster: docker-compose -f %s up -d\n",
+		"Use the following command to start cluster: docker-compose -f ./%s pull && docker-compose -f %s up -d\n",
+		composeYmlPath,
 		composeYmlPath,
 	)
 	fmt.Printf(
