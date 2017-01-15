@@ -64,9 +64,10 @@ func (g DockerComposeGenerator) Config(config ClusterConfig) {
 		
 		//Worker configs
 		for cloudType, cloud := range config.Clouds {
-			workerConfigDir := g.getCloudsXmlPath(cloudType)
+			workerConfigDir := g.getWorkerConfigDir(cloudType)
 			g.createDirectory(workerConfigDir)
-			g.saveCloudsXml(workerConfigDir, cloud.XmlConfig)
+			cloudsXmlPath := g.getCloudsXmlPath(cloudType)
+			g.saveCloudsXml(cloudsXmlPath, cloud.XmlConfig)
 			g.saveProperties(
 				g.getWorkerPropertiesPath(cloudType),
 				g.getStorageProperties(),
@@ -86,6 +87,7 @@ func (g DockerComposeGenerator) Config(config ClusterConfig) {
 		
 		//docker-compose.yml
 		dockerComposeYml := g.createDockerCompose(config)
+		g.createDirectory(g.Dir)
 		g.saveDockerCompose(dockerComposeYml)
 	}
 	composeYmlPath := createComposeYmlPath(g.Dir)
@@ -256,7 +258,6 @@ func (g DockerComposeGenerator) saveDockerCompose(composeYml DockerComposeYml) {
 	if (g.DryRun) {
 		fmt.Println(ymlString)
 	} else {
-		g.createDirectory(g.Dir)
 		err := ioutil.WriteFile(ymlPath, bts, fileMode)
 		exitIfFailed(ymlPath, err)
 	}
