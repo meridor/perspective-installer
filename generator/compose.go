@@ -59,12 +59,14 @@ func (g DockerComposeGenerator) Config(config ClusterConfig) {
 		
 		//Storage configs
 		storageConfigDir := path.Join(g.configDir, storage)
+		g.createDirectory(storageConfigDir)
 		g.saveProperties(path.Join(storageConfigDir, log4jProperties), g.getLoggingProperties(storage))
 		
 		//Worker configs
 		for cloudType, cloud := range config.Clouds {
-			cloudsXmlPath := g.getCloudsXmlPath(cloudType)
-			g.saveCloudsXml(cloudsXmlPath, cloud.XmlConfig)
+			workerConfigDir := g.getCloudsXmlPath(cloudType)
+			g.createDirectory(workerConfigDir)
+			g.saveCloudsXml(workerConfigDir, cloud.XmlConfig)
 			g.saveProperties(
 				g.getWorkerPropertiesPath(cloudType),
 				g.getStorageProperties(),
@@ -105,17 +107,14 @@ func (g DockerComposeGenerator) createDirectory(path string) {
 	if (!g.DryRun) {
 		err := os.MkdirAll(path, fileMode)
 		if (err != nil) {
-			fmt.Printf("Failed to create directory [%s]: %v. Exiting.", path, err)
+			fmt.Printf("Failed to create directory [%s]: %v. Exiting.\n", path, err)
 			os.Exit(1)
 		}
 	}
 }
 
 func (g DockerComposeGenerator) getWorkerConfigDir(cloudType CloudType) string {
-	dirName := prepareCloudType(cloudType)
-	cloudDir := path.Join(g.configDir, dirName)
-	g.createDirectory(cloudDir)
-	return cloudDir
+	return path.Join(g.configDir, prepareCloudType(cloudType))
 }
 
 func (g DockerComposeGenerator) getCloudsXmlPath(cloudType CloudType) string {
