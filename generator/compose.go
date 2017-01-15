@@ -81,7 +81,7 @@ func (g DockerComposeGenerator) Config(config ClusterConfig) {
 		//Rest configs
 		restConfigDir := path.Join(g.configDir, rest)
 		g.createDirectory(restConfigDir)
-		g.saveProperties(path.Join(restConfigDir, restProperties), g.getStorageProperties())
+		g.saveProperties(path.Join(restConfigDir, restProperties), g.getRestProperties())
 		g.saveProperties(path.Join(restConfigDir, log4jProperties), g.getLoggingProperties(rest))
 		
 		
@@ -140,6 +140,13 @@ func (g DockerComposeGenerator) getStorageProperties() map[string] string {
 	return properties
 }
 
+func (g DockerComposeGenerator) getRestProperties() map[string] string {
+	properties := g.getStorageProperties()
+	properties["perspective.rest.listen.host"] = "0.0.0.0"
+	properties["perspective.rest.listen.port"] = "8080"
+	return properties
+}
+
 func (g DockerComposeGenerator) getLoggingProperties(serviceName string) map[string] string {
 	properties := make(map[string] string)
 	properties["log4j.rootLogger"] = "WARN, logfile"
@@ -150,7 +157,7 @@ func (g DockerComposeGenerator) getLoggingProperties(serviceName string) map[str
 	properties["log4j.appender.logfile.MaxBackupIndex"] = "7"
 	properties["log4j.appender.logfile.layout"] = "org.apache.log4j.PatternLayout"
 	properties["log4j.appender.logfile.layout.ConversionPattern"] = "%d [%25.25t] %-5p %-60.60c - %m%n"
-	properties["log4j.logger.com.hazelcast "] = "INFO"
+	properties["log4j.logger.com.hazelcast"] = "INFO"
 	properties["log4j.logger.org.meridor.perspective"] = "DEBUG"
 	return properties
 }
