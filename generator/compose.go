@@ -13,6 +13,12 @@ import (
 
 const (
 	fileMode = 0644
+	rest = "rest"
+	storage = "storage"
+	log4jProperties = "log4j.properties"
+	restProperties = "rest.properties"
+	cloudsXml = "clouds.xml"
+	workerProperties = "worker.properties"
 ) 
 
 type DockerComposeYml struct {
@@ -51,18 +57,30 @@ func (g DockerComposeGenerator) Config(config ClusterConfig) {
 	if (wizard.YesNoQuestion("Will now create directories and configuration files. Proceed?", true)){
 		g.createDirectory(g.logsDir)
 		
+		//Storage configs
+		storageConfigDir := path.Join(g.configDir, storage)
+		g.saveProperties(path.Join(storageConfigDir, log4jProperties), g.getLoggingProperties(storage))
+		
 		//Worker configs
 		for cloudType, cloud := range config.Clouds {
 			cloudsXmlPath := g.getCloudsXmlPath(cloudType)
 			g.saveCloudsXml(cloudsXmlPath, cloud.XmlConfig)
-			workerPropertiesPath := g.getWorkerPropertiesPath(cloudType)
-			g.saveProperties(workerPropertiesPath, g.getStorageProperties())
+			g.saveProperties(
+				g.getWorkerPropertiesPath(cloudType),
+				g.getStorageProperties(),
+			)
+			g.saveProperties(
+				g.getWorkerLoggingPropertiesPath(cloudType),
+				g.getLoggingProperties(prepareCloudType(cloudType)),
+			)
 		}
 		
 		//Rest configs
-		restConfigDir := path.Join(g.configDir, "rest")
+		restConfigDir := path.Join(g.configDir, rest)
 		g.createDirectory(restConfigDir)
-		g.saveProperties(path.Join(restConfigDir, "rest.properties"), g.getStorageProperties())
+		g.saveProperties(path.Join(restConfigDir, restProperties), g.getStorageProperties())
+		g.saveProperties(path.Join(restConfigDir, log4jProperties), g.getLoggingProperties(rest))
+		
 		
 		//docker-compose.yml
 		dockerComposeYml := g.createDockerCompose(config)
@@ -102,17 +120,37 @@ func (g DockerComposeGenerator) getWorkerConfigDir(cloudType CloudType) string {
 
 func (g DockerComposeGenerator) getCloudsXmlPath(cloudType CloudType) string {
 	cloudDir := g.getWorkerConfigDir(cloudType)
-	return path.Join(cloudDir, "clouds.xml")
+	return path.Join(cloudDir, cloudsXml)
 }
 
 func (g DockerComposeGenerator) getWorkerPropertiesPath(cloudType CloudType) string {
 	cloudDir := g.getWorkerConfigDir(cloudType)
-	return path.Join(cloudDir, "worker.properties")
+	return path.Join(cloudDir, workerProperties)
+}
+
+func (g DockerComposeGenerator) getWorkerLoggingPropertiesPath(cloudType CloudType) string {
+	cloudDir := g.getWorkerConfigDir(cloudType)
+	return path.Join(cloudDir, log4jProperties)
 }
 
 func (g DockerComposeGenerator) getStorageProperties() map[string] string {
 	properties := make(map[string] string)
 	properties["perspective.storage.hosts"] = "storage:5801"
+	return properties
+}
+
+func (g DockerComposeGenerator) getLoggingProperties(serviceName string) map[string] string {
+	properties := make(map[string] string)
+	properties["log4j.rootLogger"] = "WARN, logfile"
+	properties["log4j.appender.logfile"] = "org.apache.log4j.DailyRollingFileAppender"
+	properties["log4j.appender.logfile.MaxFileSize"] = "2GB"
+	properties["log4j.appender.logfile.File"] = path.Join(g.logsDir, "perspective-" + serviceName + ".log")
+	properties["log4j.appender.logfile.bufferSize"] = "5242880"
+	properties["log4j.appender.logfile.MaxBackupIndex"] = "7"
+	properties["log4j.appender.logfile.layout"] = "org.apache.log4j.PatternLayout"
+	properties["log4j.appender.logfile.layout.ConversionPattern"] = "%d [%25.25t] %-5p %-60.60c - %m%n"
+	properties["log4j.logger.com.hazelcast "] = "INFO"
+	properties["log4j.logger.org.meridor.perspective"] = "DEBUG"
 	return properties
 }
 
@@ -146,8 +184,8 @@ func (g DockerComposeGenerator) createDockerCompose(config ClusterConfig) Docker
 		Version: "2.1",
 		Services: make(map[string] ServiceConfig),
 	}
-	dockerComposeYml.Services["storage"] = g.createStorageService(config)
-	dockerComposeYml.Services["rest"] = g.createRestService(config)
+	dockerComposeYml.Services[storage] = g.createStorageService(config)
+	dockerComposeYml.Services[rest] = g.createRestService(config)
 	for cloudType := range config.Clouds {
 		workerServiceName := prepareCloudType(cloudType)
 		dockerComposeYml.Services[workerServiceName] = g.createWorkerService(cloudType, config.Version)
@@ -158,17 +196,17 @@ func (g DockerComposeGenerator) createDockerCompose(config ClusterConfig) Docker
 func (g DockerComposeGenerator) createEnvironment(serviceName string) map[string] interface{} {
 	env := make(map[string] interface{})
 	env["MISC_OPTS"] = fmt.Sprintf("-Xbootclasspath/a:/etc/perspective/%s", serviceName)
-	env["LOGFILE"] = path.Join(g.logsDir, "perspective-" + serviceName + ".log")
+	env["LOGGING_OPTS"] = fmt.Sprintf("-Dlog4j.configuration=file:%s", path.Join(g.configDir, serviceName, log4jProperties))
 	return env
 }
 
 func (g DockerComposeGenerator) createStorageService(config ClusterConfig) ServiceConfig {
-	env := g.createEnvironment("storage")
+	env := g.createEnvironment(storage)
 	return ServiceConfig{
 		ContainerName: "perspective-storage",
 		Image: fmt.Sprintf("meridor/perspective-storage:%s", config.Version),
 		Environment: env,
-		Volumes: []string{volume(g.logsDir), readOnlyVolume(path.Join(g.configDir, "storage"))},
+		Volumes: []string{volume(g.logsDir), readOnlyVolume(path.Join(g.configDir, storage))},
 	}
 }
 
@@ -185,10 +223,10 @@ func (g DockerComposeGenerator) createRestService(config ClusterConfig) ServiceC
 		ContainerName: "perspective-rest",
 		Image: fmt.Sprintf("meridor/perspective-rest:%s", config.Version),
 		Ports: []string{fmt.Sprintf("8080:%d", config.ApiPort)},
-		Environment: g.createEnvironment("rest"),
-		Links: []string{"storage"},
-		DependsOn: []string{"storage"},
-		Volumes: []string{volume(g.logsDir), readOnlyVolume(path.Join(g.configDir, "rest"))},
+		Environment: g.createEnvironment(rest),
+		Links: []string{storage},
+		DependsOn: []string{storage},
+		Volumes: []string{volume(g.logsDir), readOnlyVolume(path.Join(g.configDir, rest))},
 	}
 }
 
@@ -202,8 +240,8 @@ func (g DockerComposeGenerator) createWorkerService(cloudType CloudType, version
 		ContainerName: fmt.Sprintf("perspective-%s", suffix),
 		Image: fmt.Sprintf("meridor/perspective-%s:%s", suffix, version),
 		Environment: g.createEnvironment(suffix),
-		Links: []string{"storage"},
-		DependsOn: []string{"rest"},
+		Links: []string{storage},
+		DependsOn: []string{rest},
 		Volumes: volumes,
 	}
 }
